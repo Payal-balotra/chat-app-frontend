@@ -1,12 +1,12 @@
 import { useEffect } from "react";
-import { LogOut } from "lucide-react";
+import { DoorOpen } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import Sidebar from "../components/Sidebar";
 import ChatArea from "../components/ChatArea";
 
 const HomePage = () => {
-  const { authUser, onlineUsers, logout } = useAuthStore();
+  const { authUser, onlineUsers } = useAuthStore();
   const { subscribeToEvents, unsubscribeFromEvents, getUsers, clearChatData, users } = useChatStore();
 
   useEffect(() => {
@@ -28,10 +28,9 @@ const HomePage = () => {
     if (hasNew) getUsers();
   }, [onlineUsers, users, getUsers, au]);
 
-  const handleLogout = () => {
-    unsubscribeFromEvents();
+  // "Leave Room" — just clears the active conversation, keeps socket alive
+  const handleLeaveRoom = () => {
     clearChatData();
-    logout();
   };
 
   return (
@@ -42,8 +41,8 @@ const HomePage = () => {
           <span className="text-xl font-bold">Minimal Chat</span>
           <span className="ml-3 badge badge-primary badge-sm">{authUser?.phone}</span>
         </div>
-        <button onClick={handleLogout} className="btn btn-ghost btn-circle" title="Logout">
-          <LogOut className="w-5 h-5 text-error" />
+        <button onClick={handleLeaveRoom} className="btn btn-ghost btn-circle" title="Leave Room">
+          <DoorOpen className="w-5 h-5 text-warning" />
         </button>
       </div>
 

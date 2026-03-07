@@ -2,6 +2,21 @@ import { Users } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
+const formatLastSeen = (dateStr) => {
+  if (!dateStr) return "Last seen: Unknown";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Last seen just now";
+  if (diffMins < 60) return `Last seen ${diffMins}m ago`;
+  if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+  return `Last seen ${diffDays}d ago`;
+};
+
 const Sidebar = () => {
   const { authUser, onlineUsers } = useAuthStore();
   const { users, isUsersLoading, selectedConversation, startConversation } = useChatStore();
@@ -40,7 +55,11 @@ const Sidebar = () => {
                       <span className="font-medium text-sm truncate">
                         {user.fullName || user.name || user.phone}
                       </span>
-                      <span className="text-xs opacity-50 truncate">{user.phone}</span>
+                      {isOnline ? (
+                        <span className="text-xs text-success">Online</span>
+                      ) : (
+                        <span className="text-xs opacity-40">{formatLastSeen(user.lastSeen)}</span>
+                      )}
                     </div>
                     <div
                       className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 ${
@@ -63,6 +82,15 @@ const Sidebar = () => {
           </span>
         </div>
       )}
+
+      {/* Current user footer */}
+      <div className="border-t border-base-300 p-3 flex items-center gap-2 bg-base-200/50">
+        <div className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
+        <div className="min-w-0">
+          <div className="text-xs font-semibold truncate">{authUser?.phone || "You"}</div>
+          <div className="text-xs opacity-40">You</div>
+        </div>
+      </div>
     </div>
   );
 };

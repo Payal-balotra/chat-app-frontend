@@ -22,12 +22,13 @@ export const useAuthStore = create((set, get) => ({
       }
 
       // Instead of an API call which might 404, just decode the token
-      let user = { id: "User", phone: "Logged in" };
+      const savedPhone = localStorage.getItem("userPhone") || "Unknown";
+      let user = { id: "User", phone: savedPhone };
       try {
         const base64Url = token.split('.')[1];
         const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
         const decoded = JSON.parse(window.atob(base64));
-        user = { _id: decoded.id, id: decoded.id, phone: "Logged in" };
+        user = { _id: decoded.id, id: decoded.id, phone: savedPhone };
       } catch (e) {
         console.error("Token decode failed", e);
       }
@@ -53,9 +54,10 @@ export const useAuthStore = create((set, get) => ({
 
       if (token) {
         localStorage.setItem("token", token);
-        set({ authUser: user });
+        localStorage.setItem("userPhone", phone); // always use the typed phone
+        set({ authUser: { ...user, phone } });    // override with the real phone
         get().connectSocket();
-        toast.success("Logged in successfully (OTP skipped)");
+        toast.success("Logged in successfully");
         return true;
       }
       return false;

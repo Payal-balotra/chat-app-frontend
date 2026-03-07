@@ -17,7 +17,9 @@ export const useChatStore = create((set, get) => ({
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/user/all-users");
-      set({ users: res.data.data });
+      const data = res.data.data;
+      console.log("[DEBUG] users from API:", data?.[0]); // inspect first user fields
+      set({ users: data });
     } catch (error) {
       toast.error(error.response?.data?.message || "Failed to load users");
     } finally {
@@ -28,6 +30,8 @@ export const useChatStore = create((set, get) => ({
   startConversation: (phoneNumber) => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return toast.error("Socket not connected");
+    // Leave current room before joining a new one
+    set({ selectedConversation: null, messages: [], participants: [], typingUsers: {} });
     socket.emit("startConversation", { phoneNumber });
   },
 
