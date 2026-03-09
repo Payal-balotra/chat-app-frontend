@@ -9,6 +9,7 @@ export const useChatStore = create((set, get) => ({
   typingUsers: {},
   participants: [],
   users: [],
+  conversations: [],
   isUsersLoading: false,
 
   // --- ACTIONS ---
@@ -28,6 +29,15 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  updateLastSeen: (userIds) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      users: state.users.map((u) =>
+        userIds.includes(u._id) || userIds.includes(u.id) ? { ...u, lastSeen: now } : u
+      ),
+    }));
+  },
+
   startConversation: (phoneNumber) => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return toast.error("Socket not connected");
@@ -39,7 +49,17 @@ export const useChatStore = create((set, get) => ({
   groupConversation: (phoneNumbers) => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return toast.error("Socket not connected");
+    console.log("[GROUP] Creating group with phones:", phoneNumbers);
     socket.emit("groupConversation", phoneNumbers);
+  },
+
+  openGroupConversation: (conversationId) => {
+    const socket = useAuthStore.getState().socket;
+    if (!socket) return toast.error("Socket not connected");
+    // Clear chat data while it loads
+    set({ selectedConversation: null, messages: [], participants: [], typingUsers: {} });
+    console.log("[GROUP] Opening existing group:", conversationId);
+    socket.emit("openGroupConversation", { conversationId });
   },
 
   sendMessage: (content, type = "text", attachments = []) => {
@@ -97,13 +117,26 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return;
 
     // Listeners for successful creation/subscription
+    socket.on("existingConversations", (conversations) => {
+      set({ conversations: conversations || [] });
+    });
+
     socket.on("conversationStarted", ({ conversationId, participants, messages = [] }) => {
       set({ selectedConversation: conversationId, messages, participants });
       toast.success("Joined Conversation");
     });
 
     socket.on("groupConversationStarted", ({ conversationId, participants, messages = [] }) => {
-      set({ selectedConversation: conversationId, messages, participants });
+      const newConv = { _id: conversationId, participants, isGroup: true };
+      set((state) => ({
+        selectedConversation: conversationId,
+        messages,
+        participants,
+        conversations: [
+          ...state.conversations.filter((c) => c._id !== conversationId),
+          newConv,
+        ],
+      }));
       toast.success("Group Created/Joined");
     });
 
@@ -148,7 +181,7 @@ export const useChatStore = create((set, get) => ({
     // Error handling
     socket.on("error", (err) => {
       console.error("Socket error mapping:", err);
-      toast.error(err.message || "Socket Error occurred");
+      toast.error(err.messag  e || "Socket Error occurred");
     });
   },
 
@@ -156,6 +189,7 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
 
+    socket.off("existingConversations");
     socket.off("conversationStarted");
     socket.off("groupConversationStarted");
     socket.off("newMessage");

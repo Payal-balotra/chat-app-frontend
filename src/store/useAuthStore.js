@@ -2,6 +2,7 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 import { axiosInstance } from "../lib/axios";
+import { useChatStore } from "./useChatStore";
 
 const BASE_URL = "http://localhost:5000";
 
@@ -116,7 +117,14 @@ export const useAuthStore = create((set, get) => ({
     }, 5000);
 
     newSocket.on("getOnlineUsers", (userIds) => {
-      set({ onlineUsers: userIds });
+      set((state) => {
+        // Find users who were online but just went offline
+        const wentOffline = state.onlineUsers.filter((id) => !userIds.includes(id));
+        if (wentOffline.length > 0) {
+          useChatStore.getState().updateLastSeen(wentOffline);
+        }
+        return { onlineUsers: userIds };
+      });
     });
 
     // If token is invalid, the socket connection will fail
