@@ -11,43 +11,38 @@ export const useAuthStore = create((set, get) => ({
   onlineUsers: [],
   socket: null,
 
-  checkAuth: async () => {
-    try {
-      const token = localStorage.getItem("token");
+  checkAuth: () => {
+    const token = localStorage.getItem("token");
 
-      if (!token) {
-        set({ authUser: null, isCheckingAuth: false });
-        get().disconnectSocket();
-        return;
-      }
-
-      // Instead of an API call which might 404, just decode the token
-      const savedPhone = localStorage.getItem("userPhone") || "Unknown";
-      let user = { id: "User", phone: savedPhone };
-      try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const decoded = JSON.parse(window.atob(base64));
-        user = { _id: decoded.id, id: decoded.id, phone: savedPhone };
-      } catch (e) {
-        console.error("Token decode failed", e);
-      }
-
-      set({ authUser: user });
-      get().connectSocket();
-    } catch (error) {
-      console.log("Check auth error:", error);
-      set({ authUser: null });
-      localStorage.removeItem("token");
-    } finally {
-      set({ isCheckingAuth: false });
+    if (!token) {
+      set({ authUser: null, isCheckingAuth: false });
+      get().disconnectSocket();
+      return;
     }
+
+    // Decode the token to get minimal user info (just for routing)
+    // Socket "me" event will update with full user data from DB
+    try {
+      const base64Url = token.split('.')[1];
+      const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+      const decoded = JSON.parse(window.atob(base64));
+      const phone = localStorage.getItem("userPhone") || "";
+      set({ authUser: { _id: decoded.userId || decoded.id, phone }, isCheckingAuth: false });
+    } catch (e) {
+      console.error("Token decode failed:", e);
+      localStorage.removeItem("token");
+      set({ authUser: null, isCheckingAuth: false });
+      return;
+    }
+
+    // Connect socket for real-time features + full user data via "me" event
+    get().connectSocket();
   },
 
   register: async (phone) => {
     try {
       const res = await axiosInstance.post("/auth/register", { phone });
-      
+
       const data = res.data.data || {};
       const token = data.token || res.data.token;
       const user = data.user || data.existingUser || { phone };
@@ -85,12 +80,11 @@ export const useAuthStore = create((set, get) => ({
   },
 
   connectSocket: () => {
-    const { socket, authUser } = get();
+    const { socket } = get();
+    if (socket) return;
 
-    if (socket || !authUser) return;
     const token = localStorage.getItem("token");
-
-    if(!token) return;
+    if (!token) return;
 
     const newSocket = io(BASE_URL, {
       extraHeaders: {
@@ -101,19 +95,59 @@ export const useAuthStore = create((set, get) => ({
     newSocket.on("connect", () => {
       console.log("Socket connected:", newSocket.id);
     });
-    
-    newSocket.on("getOnlineUsers", (userIds) => {
-        set({ onlineUsers: userIds });
+
+    // Backend middleware authenticates and emits user data
+    newSocket.on("me", (userData) => {
+      console.log("[AUTH] Received user data from socket:", userData);
+      if (userData) {
+        set({ authUser: userData, isCheckingAuth: false });
+      } else {
+        console.warn("[AUTH] Received null user data from socket 'me' event");
+      }
     });
 
-    set({ socket: newSocket });
+    // Fallback: if "me" never fires within 5s, stop showing loading
+    setTimeout(() => {
+      const { authUser } = get();
+      if (!authUser) {
+        console.warn("[AUTH] Socket 'me' event not received within 5s");
+        set({ isCheckingAuth: false });
+      }
+    }, 5000);
+
+    newSocket.on("getOnlineUsers", (userIds) => {
+      set({ onlineUsers: userIds });
+    });
+
+    // If token is invalid, the socket connection will fail
+    newSocket.on("connect_error", (err) => {
+      console.error("Socket connect error:", err.message);
+      // Only clear token if it's an auth error, not a transient network issue
+      if (err.message?.includes("401") || err.message?.includes("Access denied") ||
+        err.message?.includes("Invalid token") || err.message?.includes("user not found")) {
+        localStorage.removeItem("token");
+        set({ authUser: null, isCheckingAuth: false });
+        newSocket.disconnect();
+      }
+    });
+
+    // Explicitly disconnect when the user closes/refreshes the tab
+    const handleBeforeUnload = () => {
+      newSocket.disconnect();
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    set({ socket: newSocket, _beforeUnloadHandler: handleBeforeUnload });
   },
 
   disconnectSocket: () => {
-    const { socket } = get();
+    const { socket, _beforeUnloadHandler } = get();
+    if (_beforeUnloadHandler) {
+      window.removeEventListener("beforeunload", _beforeUnloadHandler);
+    }
     if (socket) {
       socket.disconnect();
-      set({ socket: null });
+      set({ socket: null, _beforeUnloadHandler: null });
     }
   },
 }));

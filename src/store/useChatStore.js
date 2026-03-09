@@ -17,7 +17,8 @@ export const useChatStore = create((set, get) => ({
     set({ isUsersLoading: true });
     try {
       const res = await axiosInstance.get("/user/all-users");
-      const data = res.data.data;
+      const raw = res.data.data;
+      const data = Array.isArray(raw) ? raw : raw ? [raw] : [];
       console.log("[DEBUG] users from API:", data?.[0]); // inspect first user fields
       set({ users: data });
     } catch (error) {
@@ -90,7 +91,7 @@ export const useChatStore = create((set, get) => ({
   },
 
   // --- LISTENERS SETUP ---
-  
+
   subscribeToEvents: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
@@ -108,9 +109,9 @@ export const useChatStore = create((set, get) => ({
 
     // Listeners for messaging
     socket.on("newMessage", (data) => {
-      const msg = data.message || data; 
+      const msg = data.message || data;
       const convId = data.conversationId || msg.conversationId;
-      
+
       const { selectedConversation, messages } = get();
       if (selectedConversation === convId) {
         set({ messages: [...messages, msg] });
@@ -154,7 +155,7 @@ export const useChatStore = create((set, get) => ({
   unsubscribeFromEvents: () => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return;
-    
+
     socket.off("conversationStarted");
     socket.off("groupConversationStarted");
     socket.off("newMessage");

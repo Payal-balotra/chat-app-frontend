@@ -3,7 +3,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
 const formatLastSeen = (dateStr) => {
-  if (!dateStr) return "Last seen: Unknown";
+  if (!dateStr) return "Offline";
   const date = new Date(dateStr);
   const now = new Date();
   const diffMs = now - date;
@@ -22,7 +22,7 @@ const Sidebar = () => {
   const { users, isUsersLoading, selectedConversation, startConversation } = useChatStore();
 
   const otherUsers = users.filter(
-    (u) => u._id !== authUser?._id && u.id !== authUser?.id
+    (u) => String(u._id) !== String(authUser?._id)
   );
 
   return (
@@ -62,9 +62,8 @@ const Sidebar = () => {
                       )}
                     </div>
                     <div
-                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 ${
-                        isOnline ? "bg-success" : "bg-base-300"
-                      }`}
+                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 ${isOnline ? "bg-success" : "bg-base-300"
+                        }`}
                     />
                   </button>
                 </li>

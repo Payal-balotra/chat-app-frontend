@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { MessageSquare, Send } from "lucide-react";
+import { MessageSquare, Send, Phone, User } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 import MessageBubble from "./MessageBubble";
 
 const ChatArea = () => {
-  const { authUser } = useAuthStore();
-  const { messages, selectedConversation, typingUsers, users, sendMessage, sendTyping } = useChatStore();
+  const { authUser, onlineUsers } = useAuthStore();
+  const { messages, selectedConversation, selectedUserPhone, typingUsers, users, participants, sendMessage, sendTyping } = useChatStore();
   const [messageInput, setMessageInput] = useState("");
   const bottomRef = useRef(null);
 
@@ -39,6 +39,27 @@ const ChatArea = () => {
     return typingUser?.name || typingUser?.fullName || typingUser?.phone || "Someone";
   })();
 
+  // Resolve the other participant's info for the chat header
+  // Use selectedUserPhone (the phone clicked in sidebar) to find the user
+  const otherParticipant = (() => {
+    if (selectedUserPhone) {
+      return users.find((u) => u.phone === selectedUserPhone);
+    }
+    // Fallback: try participants array
+    const otherId = participants.find(
+      (id) => String(id) !== String(authUser?._id) && String(id) !== String(authUser?.id)
+    );
+    if (!otherId) return null;
+    return users.find(
+      (u) => String(u._id) === String(otherId) || String(u.id) === String(otherId)
+    );
+  })();
+
+  const chatName = otherParticipant?.name || otherParticipant?.phone || selectedUserPhone || "Unknown";
+  const isOtherOnline = otherParticipant
+    ? onlineUsers.includes(otherParticipant._id?.toString()) || onlineUsers.includes(otherParticipant.id?.toString())
+    : false;
+
   if (!selectedConversation) {
     return (
       <div className="flex-1 card bg-base-100 shadow-sm flex items-center justify-center text-base-content/40 flex-col gap-3">
@@ -50,6 +71,25 @@ const ChatArea = () => {
 
   return (
     <div className="flex-1 card bg-base-100 shadow-sm flex flex-col overflow-hidden">
+      {/* Chat Header */}
+      <div className="px-4 py-3 bg-base-200/60 border-b border-base-300 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <User className="w-4 h-4 text-primary" />
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="font-semibold text-sm truncate">{chatName}</span>
+          <span className={`text-xs ${isOtherOnline ? "text-success" : "opacity-40"}`}>
+            {isOtherOnline ? "Online" : "Offline"}
+          </span>
+        </div>
+        {otherParticipant?.phone && (
+          <div className="ml-auto flex items-center gap-1 text-xs opacity-50">
+            <Phone className="w-3 h-3" />
+            <span>{otherParticipant.phone}</span>
+          </div>
+        )}
+      </div>
+
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-1">
         {messages.length === 0 && (
