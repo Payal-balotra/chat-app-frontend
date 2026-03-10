@@ -22,7 +22,7 @@ const SignUpPage = () => {
     const success = await register(phone);
 
     if (success) {
-      navigate('/');
+      navigate(`/verify-otp?phone=${encodeURIComponent(phone)}`);
     }
 
     setLoading(false);

@@ -27,10 +27,11 @@ const ChatArea = () => {
     sendTyping();
   };
 
-  // Find the typing user label
+  // Find the typing user label (scoped to current conversation)
   const typingLabel = (() => {
-    const typingId = Object.keys(typingUsers).find(
-      (id) => id !== authUser?._id && id !== authUser?.id
+    const roomTyping = typingUsers[selectedConversation] || {};
+    const typingId = Object.keys(roomTyping).find(
+      (id) => String(id) !== String(authUser?._id) && String(id) !== String(authUser?.id)
     );
     if (!typingId) return null;
     const typingUser = users.find(
@@ -70,7 +71,7 @@ const ChatArea = () => {
     : "";
 
   const chatName = isGroup
-    ? `Group (${participants.length} members)`
+    ? activeConv?.name || `Group (${participants.length} members)`
     : otherParticipant?.fullName || otherParticipant?.name || otherParticipant?.phone || selectedUserPhone || "Chat";
 
   const isOtherOnline = otherParticipant

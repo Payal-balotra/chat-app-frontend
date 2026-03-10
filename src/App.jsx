@@ -1,6 +1,7 @@
 import HomePage from "./pages/HomePage";
 import SignUpPage from "./pages/SignUpPage";
 import VerifyOtpPage from "./pages/VerifyOtpPage";
+import ProfilePage from "./pages/ProfilePage";
 
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useAuthStore } from "./store/useAuthStore";
@@ -27,6 +28,7 @@ const App = () => {
         <Route path="/" element={authUser ? <HomePage /> : <Navigate to="/signup" />} />
         <Route path="/signup" element={!authUser ? <SignUpPage /> : <Navigate to="/" />} />
         <Route path="/verify-otp" element={!authUser ? <VerifyOtpPage /> : <Navigate to="/" />} />
+        <Route path="/profile/:id" element={authUser ? <ProfilePage /> : <Navigate to="/signup" />} />
       </Routes>
       <Toaster />
     </div>

@@ -7,6 +7,7 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
     const { authUser } = useAuthStore();
     const { users, groupConversation } = useChatStore();
     const [selectedUsers, setSelectedUsers] = useState([]);
+    const [groupName, setGroupName] = useState("");
 
     const otherUsers = users.filter(
         (u) => String(u._id) !== String(authUser?._id)
@@ -23,8 +24,9 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
     const handleCreate = () => {
         if (selectedUsers.length < 2) return;
         const phoneNumbers = selectedUsers.map((u) => u.phone);
-        groupConversation(phoneNumbers);
+        groupConversation(phoneNumbers, groupName.trim() || undefined);
         setSelectedUsers([]);
+        setGroupName("");
         onClose();
     };
 
@@ -42,6 +44,20 @@ const CreateGroupModal = ({ isOpen, onClose }) => {
                     <button onClick={onClose} className="btn btn-ghost btn-sm btn-circle">
                         <X className="w-4 h-4" />
                     </button>
+                </div>
+
+                {/* Group Name Input */}
+                <div className="px-5 pt-4">
+                    <label className="label py-0">
+                        <span className="label-text-alt font-semibold text-base-content/50 uppercase">Group Name (Optional)</span>
+                    </label>
+                    <input
+                        type="text"
+                        placeholder="e.g. Family Chat, Work Team"
+                        className="input input-bordered w-full input-sm mt-1"
+                        value={groupName}
+                        onChange={(e) => setGroupName(e.target.value)}
+                    />
                 </div>
 
                 {/* Selected users chips */}

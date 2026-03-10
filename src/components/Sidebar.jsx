@@ -89,7 +89,7 @@ const Sidebar = ({ onCreateGroup }) => {
                       </div>
                       <div className="flex flex-col text-left min-w-0">
                         <span className="font-medium text-sm truncate">
-                          Group ({conv.participants.length})
+                          {conv.name || `Group (${conv.participants.length})`}
                         </span>
                         <span className="text-xs opacity-40 truncate">
                           {getGroupName(conv)}
@@ -156,7 +156,9 @@ const Sidebar = ({ onCreateGroup }) => {
       <div className="border-t border-base-300 p-3 flex items-center gap-2 bg-base-200/50">
         <div className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
         <div className="min-w-0">
-          <div className="text-xs font-semibold truncate">{authUser?.phone || "You"}</div>
+          <div className="text-xs font-semibold truncate">
+            {authUser?.name || authUser?.fullName || users.find(u => String(u._id) === String(authUser?._id))?.name || authUser?.phone || "You"}
+          </div>
           <div className="text-xs opacity-40">You</div>
         </div>
       </div>

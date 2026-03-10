@@ -43,29 +43,78 @@ export const useAuthStore = create((set, get) => ({
   register: async (phone) => {
     try {
       const res = await axiosInstance.post("/auth/register", { phone });
-
-      const data = res.data.data || {};
-      const token = data.token || res.data.token;
-      const user = data.user || data.existingUser || { phone };
-
-      if (token) {
-        localStorage.setItem("token", token);
-        localStorage.setItem("userPhone", phone); // always use the typed phone
-        set({ authUser: { ...user, phone } });    // override with the real phone
-        get().connectSocket();
-        toast.success("Logged in successfully");
-        return true;
-      }
-      return false;
+      toast.success(res.data.message || "OTP sent successfully");
+      return true;
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
       return false;
     }
   },
 
-  verifyOtp: async () => {
-    // Left empty since we skip OTP
-    return false;
+  verifyOtp: async ({ phone, otp }) => {
+    try {
+      const res = await axiosInstance.post("/auth/verify-otp", { phone, otp });
+
+      const { user, token } = res.data.data || res.data;
+
+      if (token) {
+        localStorage.setItem("token", token);
+        localStorage.setItem("userPhone", phone);
+        const processedUser = {
+          ...user,
+          _id: user._id || user.id,
+          id: user.id || user._id
+        };
+        set({ authUser: processedUser });
+        get().connectSocket();
+        toast.success("Logged in successfully");
+        return { success: true, user: processedUser };
+      }
+      return { success: false };
+    } catch (error) {
+      toast.error(error.response?.data?.message || "OTP verification failed");
+      return { success: false };
+    }
+  },
+
+  createProfile: async (id, profileData) => {
+    try {
+      const res = await axiosInstance.post(`/user/profile/${id}`, profileData);
+      const rawUser = res.data.data || res.data;
+      const updatedUser = {
+        ...rawUser,
+        _id: rawUser._id || rawUser.id,
+        id: rawUser.id || rawUser._id
+      };
+      set({ authUser: updatedUser });
+      toast.success("Profile created successfully");
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to create profile");
+      return false;
+    }
+  },
+
+  updateProfile: async (id, data) => {
+    if (!id) {
+      console.error("[AUTH] Cannot update profile: ID is undefined");
+      return false;
+    }
+    try {
+      const res = await axiosInstance.put(`/user/profile/${id}`, data);
+      const rawUser = res.data.data || res.data;
+      const updatedUser = {
+        ...rawUser,
+        _id: rawUser._id || rawUser.id,
+        id: rawUser.id || rawUser._id
+      };
+      set({ authUser: updatedUser });
+      toast.success("Profile updated successfully");
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Update failed");
+      return false;
+    }
   },
 
   logout: () => {
@@ -99,9 +148,15 @@ export const useAuthStore = create((set, get) => ({
 
     // Backend middleware authenticates and emits user data
     newSocket.on("me", (userData) => {
-      console.log("[AUTH] Received user data from socket:", userData);
+      console.log("[AUTH] Received full user data from socket 'me':", userData);
       if (userData) {
-        set({ authUser: userData, isCheckingAuth: false });
+        // Ensure ID is accessible via both ._id and .id for consistency
+        const processedUser = {
+          ...userData,
+          _id: userData._id || userData.id,
+          id: userData.id || userData._id
+        };
+        set({ authUser: processedUser, isCheckingAuth: false });
       } else {
         console.warn("[AUTH] Received null user data from socket 'me' event");
       }
