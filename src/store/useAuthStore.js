@@ -43,11 +43,33 @@ export const useAuthStore = create((set, get) => ({
   register: async (phone) => {
     try {
       const res = await axiosInstance.post("/auth/register", { phone });
+      const data = res.data.data || res.data;
+
+      // If user is already verified, backend might return a token immediately
+      if (data && data.token) {
+        const { existingUser, token } = data;
+        const user = existingUser || data.user;
+        
+        localStorage.setItem("token", token);
+        localStorage.setItem("userPhone", phone);
+        
+        const processedUser = {
+          ...user,
+          _id: user._id || user.id,
+          id: user.id || user._id
+        };
+        
+        set({ authUser: processedUser });
+        get().connectSocket();
+        toast.success("Already verified! Logged in successfully");
+        return { success: true, alreadyLogged: true };
+      }
+
       toast.success(res.data.message || "OTP sent successfully");
-      return true;
+      return { success: true, alreadyLogged: false };
     } catch (error) {
       toast.error(error.response?.data?.message || "Registration failed");
-      return false;
+      return { success: false };
     }
   },
 

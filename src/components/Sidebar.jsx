@@ -1,4 +1,5 @@
-import { Users, Plus, MessageCircle } from "lucide-react";
+import { Users, Plus, MessageCircle, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
 
@@ -19,6 +20,7 @@ const formatLastSeen = (dateStr) => {
 
 const Sidebar = ({ onCreateGroup }) => {
   const { authUser, onlineUsers } = useAuthStore();
+  const [searchQuery, setSearchQuery] = useState("");
   const {
     users,
     conversations,
@@ -28,11 +30,22 @@ const Sidebar = ({ onCreateGroup }) => {
     openGroupConversation,
   } = useChatStore();
 
-  const otherUsers = users.filter(
-    (u) => String(u._id) !== String(authUser?._id)
-  );
+  const otherUsers = users.filter((u) => {
+    const isMe = String(u._id) === String(authUser?._id);
+    if (isMe) return false;
 
-  const groupConversations = conversations.filter((c) => c.isGroup);
+    if (!searchQuery) return true;
+
+    const nameMatch = String(u.fullName || u.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const phoneMatch = String(u.phone || "").toLowerCase().includes(searchQuery.toLowerCase());
+    return nameMatch || phoneMatch;
+  });
+
+  const groupConversations = conversations.filter((c) => {
+    if (!c.isGroup) return false;
+    if (!searchQuery) return true;
+    return (c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+  });
 
   // Helper to get group display name from participant IDs
   const getGroupName = (conv) => {
@@ -63,6 +76,18 @@ const Sidebar = ({ onCreateGroup }) => {
           </button>
         </div>
         <div className="text-xs text-base-content/50 mt-0.5">Click to start chatting</div>
+        
+        {/* Search Bar */}
+        <div className="mt-4 relative">
+          <input
+            type="text"
+            placeholder="Search name or number..."
+            className="input input-bordered input-sm w-full pl-9 bg-base-200/50 focus:bg-base-100 transition-all rounded-xl border-none ring-1 ring-base-300 focus:ring-primary/50"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-base-content/30" />
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">

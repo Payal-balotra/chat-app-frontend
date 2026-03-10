@@ -19,13 +19,16 @@ const SignUpPage = () => {
 
     setLoading(true);
 
-    const success = await register(phone);
+    const { success, alreadyLogged } = await register(phone);
+    setLoading(false);
 
     if (success) {
-      navigate(`/verify-otp?phone=${encodeURIComponent(phone)}`);
+      if (alreadyLogged) {
+        navigate("/");
+      } else {
+        navigate(`/verify-otp?phone=${encodeURIComponent(phone)}`);
+      }
     }
-
-    setLoading(false);
   };
 
   return (
