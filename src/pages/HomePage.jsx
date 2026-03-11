@@ -13,7 +13,7 @@ const HomePage = () => {
   const {
     subscribeToEvents,
     unsubscribeFromEvents,
-    getUsers,
+    getContacts,
     clearChatData,
     users,
     selectedConversation,
@@ -29,21 +29,11 @@ const HomePage = () => {
 
     console.log("[DEBUG] Socket ready, subscribing to events...");
     subscribeToEvents();
-    getUsers();
+    getContacts();
 
     return () => unsubscribeFromEvents();
-  }, [socket, subscribeToEvents, unsubscribeFromEvents, getUsers]);
+  }, [socket, subscribeToEvents, unsubscribeFromEvents, getContacts]);
 
-  // Auto-refetch users if a new user comes online that we don't have yet
-  useEffect(() => {
-    if (!users || users.length === 0) return;
-    const hasNew = onlineUsers.some(
-      (id) =>
-        String(id) !== String(authUser?._id) &&
-        !users.some((u) => String(u._id) === String(id))
-    );
-    if (hasNew) getUsers();
-  }, [onlineUsers, users, getUsers, authUser]);
 
   const activeConv = useChatStore((state) =>
     state.conversations.find((c) => c._id === selectedConversation)
@@ -55,8 +45,7 @@ const HomePage = () => {
     setShowGroupInfo(false);
   };
 
-  const currentUserProfile = users.find(u => String(u._id) === String(authUser?._id));
-  const displayName = authUser?.name || authUser?.fullName || currentUserProfile?.name || currentUserProfile?.fullName || authUser?.phone || "User";
+  const displayName = authUser?.name || authUser?.phone || "User";
 
   return (
     <div className="h-screen bg-base-200 flex flex-col font-sans">
@@ -73,7 +62,7 @@ const HomePage = () => {
                 Minimal Chat
               </span>
             </div>
-            
+
             <div className="divider divider-horizontal mx-0 opacity-20"></div>
 
             {/* User Profile Summary */}
@@ -98,8 +87,8 @@ const HomePage = () => {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2">
-            <button 
-              onClick={() => setShowEditProfile(true)} 
+            <button
+              onClick={() => setShowEditProfile(true)}
               className="btn btn-ghost btn-sm gap-2 rounded-xl hover:bg-primary/5 text-base-content/70 hover:text-primary transition-all normal-case font-medium"
             >
               <User className="w-4 h-4" />
@@ -109,11 +98,10 @@ const HomePage = () => {
             {selectedConversation && isGroup && (
               <button
                 onClick={() => setShowGroupInfo(!showGroupInfo)}
-                className={`btn btn-sm gap-2 rounded-xl normal-case font-medium border-0 transition-all ${
-                  showGroupInfo 
-                    ? "bg-secondary text-secondary-content shadow-lg shadow-secondary/20" 
+                className={`btn btn-sm gap-2 rounded-xl normal-case font-medium border-0 transition-all ${showGroupInfo
+                    ? "bg-secondary text-secondary-content shadow-lg shadow-secondary/20"
                     : "btn-ghost text-base-content/70 hover:bg-secondary/10 hover:text-secondary"
-                }`}
+                  }`}
                 title="Group info"
               >
                 <Settings className="w-4 h-4" />
@@ -123,8 +111,8 @@ const HomePage = () => {
 
             <div className="divider divider-horizontal mx-1 opacity-20"></div>
 
-            <button 
-              onClick={logout} 
+            <button
+              onClick={logout}
               className="btn btn-ghost btn-sm btn-square rounded-xl hover:bg-error/10 hover:text-error transition-all"
               title="Logout"
             >

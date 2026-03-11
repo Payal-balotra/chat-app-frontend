@@ -28,8 +28,24 @@ const Sidebar = ({ onCreateGroup }) => {
     selectedConversation,
     startConversation,
     openGroupConversation,
+    getContacts,
+    addContact,
   } = useChatStore();
 
+  const [contactPhone, setContactPhone] = useState("");
+  const [isAddingContact, setIsAddingContact] = useState(false);
+
+
+  const handleAddContact = async (e) => {
+    e.preventDefault();
+    if (!contactPhone.trim()) return;
+    setIsAddingContact(true);
+    const success = await addContact(contactPhone);
+    if (success) {
+      setContactPhone("");
+    }
+    setIsAddingContact(false);
+  };
   const otherUsers = users.filter((u) => {
     const isMe = String(u._id) === String(authUser?._id);
     if (isMe) return false;
@@ -77,11 +93,29 @@ const Sidebar = ({ onCreateGroup }) => {
         </div>
         <div className="text-xs text-base-content/50 mt-0.5">Click to start chatting</div>
         
+        {/* Add Contact Form */}
+        <form onSubmit={handleAddContact} className="mt-4 flex gap-2">
+          <input
+            type="text"
+            placeholder="Add phone..."
+            className="input input-bordered input-xs flex-1 bg-base-200"
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+          />
+          <button 
+            type="submit" 
+            className="btn btn-primary btn-xs"
+            disabled={isAddingContact}
+          >
+            {isAddingContact ? "..." : <Plus className="w-3 h-3" />}
+          </button>
+        </form>
+
         {/* Search Bar */}
         <div className="mt-4 relative">
           <input
             type="text"
-            placeholder="Search name or number..."
+            placeholder="Search contact..."
             className="input input-bordered input-sm w-full pl-9 bg-base-200/50 focus:bg-base-100 transition-all rounded-xl border-none ring-1 ring-base-300 focus:ring-primary/50"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -130,7 +164,7 @@ const Sidebar = ({ onCreateGroup }) => {
 
         {/* Users */}
         <div className="px-4 pt-3 pb-1 text-xs font-semibold text-base-content/40 uppercase tracking-wider">
-          Users
+          Contacts
         </div>
         {isUsersLoading ? (
           <div className="p-4 text-center text-sm opacity-50">Loading...</div>
@@ -182,7 +216,7 @@ const Sidebar = ({ onCreateGroup }) => {
         <div className="w-2 h-2 rounded-full bg-success flex-shrink-0" />
         <div className="min-w-0">
           <div className="text-xs font-semibold truncate">
-            {authUser?.name || authUser?.fullName || users.find(u => String(u._id) === String(authUser?._id))?.name || authUser?.phone || "You"}
+            {authUser?.name || authUser?.fullName || authUser?.phone || "You"}
           </div>
           <div className="text-xs opacity-40">You</div>
         </div>

@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { axiosInstance } from "../lib/axios";
 import { useChatStore } from "./useChatStore";
 
-const BASE_URL = "https://chat-app-zadj.onrender.com";
+const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,

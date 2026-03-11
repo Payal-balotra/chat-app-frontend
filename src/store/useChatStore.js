@@ -15,18 +15,31 @@ export const useChatStore = create((set, get) => ({
 
   // --- ACTIONS ---
 
-  getUsers: async () => {
+  getContacts: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/user/all-users");
+      const res = await axiosInstance.get("/user/getContacts");
       const raw = res.data.data;
-      const data = Array.isArray(raw) ? raw : raw ? [raw] : [];
-      console.log("[DEBUG] users from API:", data?.[0]); // inspect first user fields
+      // If backend returns the user object, extract contacts; otherwise fallback to array check
+      const data = Array.isArray(raw) ? raw : (raw?.contacts || []);
+      console.log("[DEBUG] contacts from API:", data?.[0]);
       set({ users: data });
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to load users");
+      toast.error(error.response?.data?.message || "Failed to load contacts");
     } finally {
       set({ isUsersLoading: false });
+    }
+  },
+
+  addContact: async (phone) => {
+    try {
+      const res = await axiosInstance.post("/user/add", { phone });
+      toast.success(res.data.message || "Contact added successfully!");
+      get().getContacts(); // Refresh list
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to add contact");
+      return false;
     }
   },
 
