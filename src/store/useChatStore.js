@@ -8,7 +8,8 @@ export const useChatStore = create((set, get) => ({
   selectedConversation: null,
   typingUsers: {},
   participants: [],
-  users: [],
+  users: [], // Official contacts
+  knownUsers: {}, // Cache for all users encountered in chats
   conversations: [],
   isUsersLoading: false,
   isJoining: false,
@@ -73,8 +74,12 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return toast.error("Socket not connected");
     // Clear chat data while it loads
     set({ selectedConversation: null, messages: [], participants: [], typingUsers: {}, isJoining: true });
-    console.log("[GROUP] Opening existing group:", conversationId);
+    console.log("[DEBUG] Opening existing conversation:", conversationId);
     socket.emit("openGroupConversation", { conversationId });
+  },
+
+  joinConversation: (conversationId) => {
+    get().openGroupConversation(conversationId);
   },
 
   sendMessage: (content, type = "text", attachments = []) => {
@@ -152,10 +157,22 @@ export const useChatStore = create((set, get) => ({
       const rawConvs = Array.isArray(data) ? data : (data?.conversations || []);
       console.log("[DEBUG] Extracted raw conversations list:", rawConvs.length, "items");
 
-      const processedConversations = rawConvs.map(conv => ({
-        ...conv,
-        isGroup: conv.isGroup || (conv.participants && conv.participants.length > 2)
-      }));
+      const processedConversations = rawConvs.map(conv => {
+        // Cache any full participant objects found
+        if (Array.isArray(conv.participants)) {
+          conv.participants.forEach(p => {
+            if (typeof p === 'object' && p._id) {
+              set(state => ({
+                knownUsers: { ...state.knownUsers, [p._id]: p }
+              }));
+            }
+          });
+        }
+        return {
+          ...conv,
+          isGroup: conv.isGroup || (conv.participants && conv.participants.length > 2)
+        };
+      });
       console.log("[DEBUG] Processed conversations:", processedConversations);
       set({ conversations: processedConversations });
     });

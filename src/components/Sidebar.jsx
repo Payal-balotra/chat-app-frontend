@@ -25,11 +25,10 @@ const Sidebar = ({ onCreateGroup }) => {
     users,
     conversations,
     isUsersLoading,
-    selectedConversation,
-    startConversation,
-    openGroupConversation,
+    joinConversation,
     getContacts,
     addContact,
+    knownUsers,
   } = useChatStore();
 
   const [contactPhone, setContactPhone] = useState("");
@@ -57,22 +56,34 @@ const Sidebar = ({ onCreateGroup }) => {
     return nameMatch || phoneMatch;
   });
 
-  const groupConversations = conversations.filter((c) => {
-    if (!c.isGroup) return false;
+  const activeChats = conversations.filter((c) => {
     if (!searchQuery) return true;
-    return (c.name || "").toLowerCase().includes(searchQuery.toLowerCase());
+    const name = c.isGroup ? c.name : c.participants?.find(p => String(p._id) !== String(authUser?._id))?.name || c.participants?.find(p => String(p._id) !== String(authUser?._id))?.fullName;
+    return (name || "").toLowerCase().includes(searchQuery.toLowerCase());
   });
 
-  // Helper to get group display name from participant IDs
-  const getGroupName = (conv) => {
-    const memberNames = conv.participants
-      .filter((id) => String(id) !== String(authUser?._id))
-      .map((id) => {
-        const u = users.find((u) => String(u._id) === String(id));
-        return u?.fullName || u?.name || u?.phone || "Unknown";
-      })
-      .slice(0, 3);
-    return memberNames.join(", ");
+  // Helper to get group display name from participant IDs or objects
+  const getChatName = (conv) => {
+    if (conv.isGroup) return conv.name || "Group";
+    
+    // For 1-on-1, try to find the other participant
+    const otherParticipant = conv.participants?.find(p => 
+      String(p._id || p) !== String(authUser?._id)
+    );
+
+    if (typeof otherParticipant === 'object') {
+      return otherParticipant.name || otherParticipant.fullName || otherParticipant.phone || "Unknown User";
+    }
+
+    // Fallback if we only have IDs: check contacts list first
+    const contact = users.find(u => String(u._id) === String(otherParticipant));
+    if (contact) return contact.name || contact.fullName || contact.phone;
+
+    // Check known users cache (all users we've seen in any chat)
+    const known = knownUsers[String(otherParticipant)];
+    if (known) return known.name || known.fullName || known.phone;
+
+    return "New Chat"; 
   };
 
   return (
@@ -125,42 +136,88 @@ const Sidebar = ({ onCreateGroup }) => {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {/* Group Conversations */}
-        {groupConversations.length > 0 && (
-          <div>
-            <div className="px-4 pt-3 pb-1 text-xs font-semibold text-base-content/40 uppercase tracking-wider">
-              Groups
-            </div>
+        {/* Active Chats */}
+        <div>
+          <div className="px-4 pt-3 pb-1 text-xs font-semibold text-base-content/40 uppercase tracking-wider">
+            Active Chats
+          </div>
+          {activeChats.length === 0 ? (
+            <div className="p-4 text-center text-xs opacity-50">No active chats</div>
+          ) : (
             <ul className="menu w-full px-2 gap-0.5">
-              {groupConversations.map((conv) => {
+              {activeChats.map((conv) => {
                 const isActive = selectedConversation === conv._id;
+                const chatName = getChatName(conv);
+                const isOnline = !conv.isGroup && onlineUsers.includes(
+                  conv.participants?.find(p => String(p._id || p) !== String(authUser?._id))?._id?.toString() || 
+                  conv.participants?.find(p => String(p._id || p) !== String(authUser?._id))
+                );
+
+                const otherParticipant = conv.participants?.find(p => String(p._id || p) !== String(authUser?._id));
+                const otherParticipantId = String(otherParticipant?._id || otherParticipant);
+                const isContact = conv.isGroup || users.some(u => String(u._id) === otherParticipantId);
+                
+                // Try to get profile from knownUsers cache if not in contacts
+                const knownProfile = !isContact ? knownUsers[otherParticipantId] : null;
+
+                // Priority for name: 1. Official Contact, 2. Known Profile (from backend), 3. Generic Label
+                const resolvedChatName = isContact ? chatName : (knownProfile?.name || knownProfile?.fullName || knownProfile?.phone || chatName);
+
                 return (
                   <li key={conv._id}>
-                    <button
-                      className={`flex items-center gap-3 px-3 py-2.5 rounded-lg w-full transition-all ${isActive
-                        ? "bg-primary/10 border border-primary/20"
-                        : "hover:bg-base-200 border border-transparent"
-                        }`}
-                      onClick={() => openGroupConversation(conv._id)}
-                    >
-                      <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center flex-shrink-0">
-                        <MessageCircle className="w-3.5 h-3.5 text-secondary" />
-                      </div>
-                      <div className="flex flex-col text-left min-w-0">
-                        <span className="font-medium text-sm truncate">
-                          {conv.name || `Group (${conv.participants.length})`}
-                        </span>
-                        <span className="text-xs opacity-40 truncate">
-                          {getGroupName(conv)}
-                        </span>
-                      </div>
-                    </button>
+                    <div className={`flex items-center gap-2 px-1 group ${isActive ? "bg-primary/5" : ""}`}>
+                      <button
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-lg flex-1 transition-all ${isActive
+                          ? "bg-primary/10 border border-primary/20"
+                          : "hover:bg-base-200 border border-transparent"
+                          }`}
+                        onClick={() => joinConversation(conv._id)}
+                      >
+                        <div className="relative">
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${conv.isGroup ? 'bg-secondary/10' : 'bg-primary/10'}`}>
+                            {conv.isGroup ? (
+                              <Users className="w-5 h-5 text-secondary" />
+                            ) : (
+                              <MessageCircle className="w-5 h-5 text-primary" />
+                            )}
+                          </div>
+                          {isOnline && (
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-success border-2 border-base-100 rounded-full" />
+                          )}
+                        </div>
+                        <div className="flex flex-col text-left min-w-0">
+                          <span className="font-medium text-sm truncate">
+                            {resolvedChatName}
+                          </span>
+                          {!isContact && !conv.isGroup && (
+                            <span className="text-[10px] text-primary font-bold uppercase tracking-tighter">Not in contacts</span>
+                          )}
+                          <span className="text-xs opacity-40 truncate">
+                            {conv.isGroup ? "Group Chat" : isOnline ? "Online" : "Active Conversation"}
+                          </span>
+                        </div>
+                      </button>
+
+                      {!isContact && !conv.isGroup && (otherParticipant?.phone || knownProfile?.phone) && (
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            addContact(otherParticipant?.phone || knownProfile?.phone);
+                          }}
+                          className="btn btn-circle btn-xs btn-primary mr-2 shadow-sm"
+                          title="Add to contacts"
+                        >
+                          <Plus className="w-3 h-3" />
+                        </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}
             </ul>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Users */}
         <div className="px-4 pt-3 pb-1 text-xs font-semibold text-base-content/40 uppercase tracking-wider">
