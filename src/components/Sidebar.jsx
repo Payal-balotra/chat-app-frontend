@@ -174,8 +174,10 @@ const Sidebar = ({ onCreateGroup }) => {
                           : "hover:bg-base-200 border border-transparent"
                           }`}
                         onClick={() => {
-                          console.log("[DEBUG] Sidebar: Joining conversation:", conv._id);
-                          joinConversation(conv._id);
+                          const otherParticipant = conv.participants?.find(p => String(p._id || p) !== String(authUser?._id));
+                          const phone = otherParticipant?.phone || otherParticipant?.phone_number;
+                          console.log("[DEBUG] Sidebar: Joining conversation:", conv._id, "with phone:", phone);
+                          joinConversation(conv._id, phone);
                         }}
                       >
                         <div className="relative">

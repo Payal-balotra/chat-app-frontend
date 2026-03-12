@@ -72,17 +72,24 @@ export const useChatStore = create((set, get) => ({
     socket.emit("groupConversation", phoneNumbers, name);
   },
 
-  openGroupConversation: (conversationId) => {
+  openGroupConversation: (conversationId, phoneNumber = null) => {
     const socket = useAuthStore.getState().socket;
     if (!socket) return toast.error("Socket not connected");
     // Clear chat data while it loads
     set({ selectedConversation: null, messages: [], participants: [], typingUsers: {}, isJoining: true });
-    console.log("[DEBUG] Emitting 'conversationStarted' (OBJECT format) with ID:", conversationId);
-    socket.emit("conversationStarted", { conversationId, id: conversationId });
+    
+    const payload = { conversationId, id: conversationId };
+    if (phoneNumber) {
+      payload.phoneNumber = phoneNumber;
+      payload.phone = phoneNumber;
+    }
+
+    console.log("[DEBUG] Emitting 'conversationStarted' (OBJECT format) with:", payload);
+    socket.emit("conversationStarted", payload);
   },
 
-  joinConversation: (conversationId) => {
-    get().openGroupConversation(conversationId);
+  joinConversation: (conversationId, phoneNumber = null) => {
+    get().openGroupConversation(conversationId, phoneNumber);
   },
 
   sendMessage: (content, type = "text", attachments = []) => {
