@@ -1,4 +1,4 @@
-import { Users, Plus, MessageCircle, Search } from "lucide-react";
+import { Users, Plus, MessageCircle, Search, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { useChatStore } from "../store/useChatStore";
@@ -31,6 +31,7 @@ const Sidebar = ({ onCreateGroup }) => {
     knownUsers,
     selectedConversation,
     startConversation,
+    removeContact,
   } = useChatStore();
 
   const [contactPhone, setContactPhone] = useState("");
@@ -85,7 +86,10 @@ const Sidebar = ({ onCreateGroup }) => {
     const known = knownUsers[String(otherParticipant)];
     if (known) return known.name || known.fullName || known.phone;
 
-    return "New Chat"; 
+    // Last resort: if we have a phone number in the participant field, use it
+    if (otherParticipant?.phone || otherParticipant?.phone_number) return otherParticipant.phone || otherParticipant.phone_number;
+
+    return "Chat";
   };
 
   return (
@@ -240,28 +244,42 @@ const Sidebar = ({ onCreateGroup }) => {
               const isOnline = onlineUsers.includes(user._id?.toString());
               return (
                 <li key={user._id}>
-                  <button
-                    className="flex justify-between items-center px-3 py-2.5 rounded-lg hover:bg-base-200 w-full"
-                    onClick={() => {
-                      console.log("[DEBUG] Sidebar: Starting 1-on-1 chat with phone:", user.phone);
-                      startConversation(user.phone);
-                    }}
-                  >
-                    <div className="flex flex-col text-left min-w-0">
-                      <span className="font-medium text-sm truncate">
-                        {user.fullName || user.name || user.phone}
-                      </span>
-                      {isOnline ? (
-                        <span className="text-xs text-success">Online</span>
-                      ) : (
-                        <span className="text-xs opacity-40">{formatLastSeen(user.lastSeen)}</span>
-                      )}
-                    </div>
-                    <div
-                      className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 ${isOnline ? "bg-success" : "bg-base-300"
-                        }`}
-                    />
-                  </button>
+                  <div className="flex items-center gap-1 group px-1">
+                    <button
+                      className="flex justify-between items-center px-3 py-2.5 rounded-lg hover:bg-base-200 flex-1 min-w-0"
+                      onClick={() => {
+                        console.log("[DEBUG] Sidebar: Starting 1-on-1 chat with phone:", user.phone);
+                        startConversation(user.phone);
+                      }}
+                    >
+                      <div className="flex flex-col text-left min-w-0">
+                        <span className="font-medium text-sm truncate">
+                          {user.fullName || user.name || user.phone}
+                        </span>
+                        {isOnline ? (
+                          <span className="text-xs text-success">Online</span>
+                        ) : (
+                          <span className="text-xs opacity-40">{formatLastSeen(user.lastSeen)}</span>
+                        )}
+                      </div>
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ml-2 ${isOnline ? "bg-success" : "bg-base-300"
+                          }`}
+                      />
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-xs btn-circle text-error opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mr-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (window.confirm(`Remove ${user.fullName || user.name || user.phone} from contacts?`)) {
+                          removeContact(user._id);
+                        }
+                      }}
+                      title="Remove Contact"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </li>
               );
             })}

@@ -44,6 +44,18 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  removeContact: async (id) => {
+    try {
+      await axiosInstance.delete(`/user/deleteContact/${id}`);
+      toast.success("Contact removed successfully");
+      get().getContacts();
+      return true;
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to remove contact");
+      return false;
+    }
+  },
+
   updateLastSeen: (userIds) => {
     const now = new Date().toISOString();
     set((state) => ({
@@ -77,7 +89,7 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return toast.error("Socket not connected");
     // Clear chat data while it loads
     set({ selectedConversation: null, messages: [], participants: [], typingUsers: {}, isJoining: true });
-    
+
     const payload = { conversationId, id: conversationId };
     if (phoneNumber) {
       payload.phoneNumber = phoneNumber;
