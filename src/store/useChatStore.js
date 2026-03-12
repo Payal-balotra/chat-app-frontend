@@ -55,10 +55,13 @@ export const useChatStore = create((set, get) => ({
 
   startConversation: (phoneNumber) => {
     const socket = useAuthStore.getState().socket;
+    console.log("[DEBUG] startConversation called. Phone:", phoneNumber, "Socket Connected:", socket?.connected);
     if (!socket) return toast.error("Socket not connected");
     // Leave current room before joining a new one
     set({ selectedConversation: null, messages: [], participants: [], typingUsers: {}, isJoining: true });
-    socket.emit("startConversation", { phoneNumber });
+    console.log("[DEBUG] Emitting 'conversationStarted' (MULTI-KEY format) with phone:", phoneNumber);
+    // Send both variants to satisfy different backend validation patterns
+    socket.emit("conversationStarted", { phoneNumber, phone: phoneNumber });
   },
 
   groupConversation: (phoneNumbers, name) => {
@@ -74,8 +77,8 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return toast.error("Socket not connected");
     // Clear chat data while it loads
     set({ selectedConversation: null, messages: [], participants: [], typingUsers: {}, isJoining: true });
-    console.log("[DEBUG] Opening existing conversation:", conversationId);
-    socket.emit("openGroupConversation", { conversationId });
+    console.log("[DEBUG] Emitting 'conversationStarted' (OBJECT format) with ID:", conversationId);
+    socket.emit("conversationStarted", { conversationId, id: conversationId });
   },
 
   joinConversation: (conversationId) => {
@@ -85,8 +88,13 @@ export const useChatStore = create((set, get) => ({
   sendMessage: (content, type = "text", attachments = []) => {
     const socket = useAuthStore.getState().socket;
     const { selectedConversation } = get();
-    if (!socket || !selectedConversation) return;
+    console.log("[DEBUG] sendMessage called. Socket:", socket?.id, "Connected:", socket?.connected, "Conv:", selectedConversation);
+    if (!socket || !selectedConversation) {
+      console.warn("[DEBUG] Cannot send message: socket or conversation missing");
+      return;
+    }
 
+    console.log("[DEBUG] Emitting 'sendMessage' event with payload:", { conversationId: selectedConversation, type, content });
     socket.emit("sendMessage", {
       conversationId: selectedConversation,
       type,
@@ -132,33 +140,36 @@ export const useChatStore = create((set, get) => ({
 
   // --- LISTENERS SETUP ---
 
-  subscribeToEvents: () => {
-    const socket = useAuthStore.getState().socket;
-    if (!socket) return;
+  subscribeToEvents: (socketInstance) => {
+    const socket = socketInstance || useAuthStore.getState().socket;
+    console.log("[DEBUG] subscribeToEvents called. Using Socket ID:", socket?.id);
+    if (!socket) {
+      console.warn("[DEBUG] subscribeToEvents: No socket available");
+      return;
+    }
 
-    // Request initial list of conversations upon subscription
-    // Small delay ensures backend auth middleware has finished
-    setTimeout(() => {
-      if (socket.connected) {
-        console.log("[DEBUG] Emitting getConversations to socket:", socket.id);
-        socket.emit("getConversations");
-      }
-    }, 500);
+    // Log ALL incoming events for debugging
+    socket.onAny((eventName, ...args) => {
+      console.log(`[DEBUG] Incoming signal from server -> Event: ${eventName}`, args);
+    });
+
+    // Request initial list of conversations
+    console.log("[DEBUG] Requesting initial conversations list. Socket connected:", socket.connected);
+    socket.emit("getConversations");
 
     // Also fetch on every (re)connect
     socket.on("connect", () => {
-      console.log("[DEBUG] Socket reconnected, fetching conversations...");
+      console.log("[DEBUG] Socket (re)connected, fetching conversations...");
       socket.emit("getConversations");
     });
 
-    // Listeners for successful creation/subscription
     socket.on("existingConversations", (data) => {
-      console.log("[DEBUG] Received existingConversations event. Data:", data);
+      console.log("[DEBUG] Received existingConversations event. RAW DATA:", data);
       const rawConvs = Array.isArray(data) ? data : (data?.conversations || []);
       console.log("[DEBUG] Extracted raw conversations list:", rawConvs.length, "items");
 
       const processedConversations = rawConvs.map(conv => {
-        // Cache any full participant objects found
+        // Cache any full participant objects found to ensure they resolve even if not in contacts
         if (Array.isArray(conv.participants)) {
           conv.participants.forEach(p => {
             if (typeof p === 'object' && p._id) {
@@ -178,12 +189,14 @@ export const useChatStore = create((set, get) => ({
     });
 
     socket.on("conversationStarted", ({ conversationId, participants, messages = [] }) => {
-      console.log("[DEBUG] Joined conversation:", conversationId);
+      console.log("[DEBUG] Event 'conversationStarted':", { conversationId, participants, msgCount: messages.length });
       const { isJoining } = get();
       if (isJoining) {
+        console.log("[DEBUG] Auto-selecting room:", conversationId);
         set({ selectedConversation: conversationId, messages, participants, isJoining: false });
         toast.success("Joined Conversation");
       }
+      console.log("[DEBUG] Refreshing conversations after conversationStarted");
       socket.emit("getConversations");
     });
 
@@ -191,7 +204,7 @@ export const useChatStore = create((set, get) => ({
       console.log("[DEBUG] Joined group conversation:", conversationId);
       const { isJoining } = get();
       const newConv = { _id: conversationId, participants, isGroup: true };
-      
+
       if (isJoining) {
         set((state) => ({
           selectedConversation: conversationId,
@@ -241,27 +254,36 @@ export const useChatStore = create((set, get) => ({
     socket.on("newMessage", (data) => {
       const msg = data.message || data;
       const msgId = msg._id || msg.id;
-      
+
+      console.log("[DEBUG] Received newMessage event. Data:", data, "MsgID:", msgId);
+
       // Prevent processing the same message twice (happens if backend emits to room & user ID)
-      if (lastMsgId === msgId) return;
+      if (lastMsgId === msgId) {
+        console.log("[DEBUG] Skipping duplicate message:", msgId);
+        return;
+      }
       lastMsgId = msgId;
 
       const convId = data.conversationId || msg.conversationId;
       const { authUser } = useAuthStore.getState();
       const { selectedConversation, messages, users, conversations } = get();
 
+      console.log("[DEBUG] Processing message. convId:", convId, "selectedConversation:", selectedConversation);
+
       // 1. If we're in the chat, just add it to messages
-      if (selectedConversation === convId) {
+      if (String(selectedConversation) === String(convId)) {
+        console.log("[DEBUG] Adding message to current chat state");
         set({ messages: [...messages, msg] });
-      } 
+      }
       // 2. If we're NOT in the chat AND it's not our own message, show a toast
       else if (String(msg.sender) !== String(authUser?._id)) {
+        console.log("[DEBUG] Showing notification for message in other chat");
         const sender = users.find(u => String(u._id) === String(msg.sender));
         const conv = conversations.find(c => String(c._id) === String(convId));
-        
+
         const senderName = sender?.name || sender?.fullName || sender?.phone || "Someone";
         const prefix = conv?.isGroup ? `[${conv.name}] ${senderName}` : senderName;
-        
+
         toast.success(`${prefix}: ${msg.content.substring(0, 30)}${msg.content.length > 30 ? "..." : ""}`, {
           duration: 4000,
           icon: "💬"
@@ -269,6 +291,7 @@ export const useChatStore = create((set, get) => ({
       }
 
       // Always reload conversations to update snippets/unread counts in sidebar
+      console.log("[DEBUG] Refreshing conversations list");
       socket.emit("getConversations");
     });
 
@@ -330,6 +353,11 @@ export const useChatStore = create((set, get) => ({
 
     socket.on("adminChanged", () => {
       toast.success("Admin changed");
+    });
+
+    socket.on("messagesRead", ({ conversationId }) => {
+      console.log("[DEBUG] Received messagesRead event for room:", conversationId);
+      // Logic for updating UI (e.g. checkmarks) can go here
     });
 
     // Error handling

@@ -28,7 +28,7 @@ const HomePage = () => {
     if (!socket) return;
 
     console.log("[DEBUG] Socket ready, subscribing to events...");
-    subscribeToEvents();
+    subscribeToEvents(socket);
     getContacts();
 
     return () => unsubscribeFromEvents();

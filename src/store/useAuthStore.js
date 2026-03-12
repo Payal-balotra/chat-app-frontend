@@ -21,6 +21,7 @@ export const useAuthStore = create((set, get) => ({
       return;
     }
 
+    console.log("[DEBUG] checkAuth called. Token present:", !!token);
     // Decode the token to get minimal user info (just for routing)
     // Socket "me" event will update with full user data from DB
     try {
@@ -158,14 +159,28 @@ export const useAuthStore = create((set, get) => ({
     const token = localStorage.getItem("token");
     if (!token) return;
 
+    console.log("[DEBUG] Connecting socket to:", BASE_URL, "Token present:", !!token);
     const newSocket = io(BASE_URL, {
+      auth: { token }, 
       extraHeaders: {
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}` 
       }
     });
 
     newSocket.on("connect", () => {
-      console.log("Socket connected:", newSocket.id);
+      console.log("[DEBUG] Socket connected successfully. ID:", newSocket.id);
+    });
+
+    newSocket.on("disconnect", (reason) => {
+      console.warn("[DEBUG] Socket disconnected. Reason:", reason);
+    });
+
+    newSocket.on("reconnect_attempt", (attempt) => {
+      console.log("[DEBUG] Socket reconnection attempt:", attempt);
+    });
+
+    newSocket.on("connect_error", (err) => {
+      console.error("[DEBUG] Socket connection error details:", err);
     });
 
     // Backend middleware authenticates and emits user data

@@ -29,6 +29,8 @@ const Sidebar = ({ onCreateGroup }) => {
     getContacts,
     addContact,
     knownUsers,
+    selectedConversation,
+    startConversation,
   } = useChatStore();
 
   const [contactPhone, setContactPhone] = useState("");
@@ -171,7 +173,10 @@ const Sidebar = ({ onCreateGroup }) => {
                           ? "bg-primary/10 border border-primary/20"
                           : "hover:bg-base-200 border border-transparent"
                           }`}
-                        onClick={() => joinConversation(conv._id)}
+                        onClick={() => {
+                          console.log("[DEBUG] Sidebar: Joining conversation:", conv._id);
+                          joinConversation(conv._id);
+                        }}
                       >
                         <div className="relative">
                           <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${conv.isGroup ? 'bg-secondary/10' : 'bg-primary/10'}`}>
@@ -235,7 +240,10 @@ const Sidebar = ({ onCreateGroup }) => {
                 <li key={user._id}>
                   <button
                     className="flex justify-between items-center px-3 py-2.5 rounded-lg hover:bg-base-200 w-full"
-                    onClick={() => startConversation(user.phone)}
+                    onClick={() => {
+                      console.log("[DEBUG] Sidebar: Starting 1-on-1 chat with phone:", user.phone);
+                      startConversation(user.phone);
+                    }}
                   >
                     <div className="flex flex-col text-left min-w-0">
                       <span className="font-medium text-sm truncate">

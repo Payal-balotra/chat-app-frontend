@@ -7,6 +7,9 @@ import MessageBubble from "./MessageBubble";
 const ChatArea = () => {
   const { authUser, onlineUsers } = useAuthStore();
   const { messages, selectedConversation, selectedUserPhone, typingUsers, users, participants, sendMessage, sendTyping } = useChatStore();
+  
+  console.log("[DEBUG] ChatArea Render. selectedConversation:", selectedConversation, "msgCount:", messages.length, "sendMessage defined:", typeof sendMessage);
+
   const [messageInput, setMessageInput] = useState("");
   const bottomRef = useRef(null);
 
@@ -17,7 +20,11 @@ const ChatArea = () => {
 
   const handleSend = (e) => {
     e.preventDefault();
-    if (!messageInput.trim()) return;
+    console.log("[DEBUG] handleSend triggered. Input:", messageInput);
+    if (!messageInput.trim()) {
+      console.log("[DEBUG] Empty message, skipping send");
+      return;
+    }
     sendMessage(messageInput);
     setMessageInput("");
   };
