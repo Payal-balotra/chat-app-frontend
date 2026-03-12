@@ -4,7 +4,7 @@ import { io } from "socket.io-client";
 import { axiosInstance } from "../lib/axios";
 import { useChatStore } from "./useChatStore";
 
-const BASE_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+const BASE_URL = import.meta.env.VITE_BACKEND_API || "http://localhost:5000";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -43,6 +43,9 @@ export const useAuthStore = create((set, get) => ({
 
   register: async (phone) => {
     try {
+      console.log("BASE_URL", BASE_URL)
+      console.log("import.meta.env.VITE_BACKEND_URL", import.meta.env.VITE_BACKEND_URL)
+
       const res = await axiosInstance.post("/auth/register", { phone });
       const data = res.data.data || res.data;
 
@@ -50,16 +53,16 @@ export const useAuthStore = create((set, get) => ({
       if (data && data.token) {
         const { existingUser, token } = data;
         const user = existingUser || data.user;
-        
+
         localStorage.setItem("token", token);
         localStorage.setItem("userPhone", phone);
-        
+
         const processedUser = {
           ...user,
           _id: user._id || user.id,
           id: user.id || user._id
         };
-        
+
         set({ authUser: processedUser });
         get().connectSocket();
         toast.success("Already verified! Logged in successfully");
@@ -161,9 +164,9 @@ export const useAuthStore = create((set, get) => ({
 
     console.log("[DEBUG] Connecting socket to:", BASE_URL, "Token present:", !!token);
     const newSocket = io(BASE_URL, {
-      auth: { token }, 
+      auth: { token },
       extraHeaders: {
-        Authorization: `Bearer ${token}` 
+        Authorization: `Bearer ${token}`
       }
     });
 
