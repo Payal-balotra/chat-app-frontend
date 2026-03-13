@@ -99,14 +99,16 @@ const Sidebar = ({ onCreateGroup }) => {
           <h2 className="text-base font-bold flex items-center gap-2">
             <Users className="w-4 h-4" /> Chats
           </h2>
-          <button
-            className="btn btn-primary btn-xs gap-1"
-            onClick={onCreateGroup}
-            title="Create Group"
-          >
-            <Plus className="w-3 h-3" />
-            Group
-          </button>
+          {otherUsers.length >= 2 && (
+            <button
+              className="btn btn-primary btn-xs gap-1"
+              onClick={onCreateGroup}
+              title="Create Group"
+            >
+              <Plus className="w-3 h-3" />
+              Group
+            </button>
+          )}
         </div>
         <div className="text-xs text-base-content/50 mt-0.5">Click to start chatting</div>
         

@@ -127,7 +127,9 @@ export const useAuthStore = create((set, get) => ({
       return false;
     }
     try {
+      console.log("[AUTH] Updating profile for ID:", id, "with data:", data);
       const res = await axiosInstance.put(`/user/profile/${id}`, data);
+      console.log("[AUTH] updateProfile response received:", res.data);
       const rawUser = res.data.data || res.data;
       const updatedUser = {
         ...rawUser,
@@ -138,6 +140,7 @@ export const useAuthStore = create((set, get) => ({
       toast.success("Profile updated successfully");
       return true;
     } catch (error) {
+      console.error("[AUTH] updateProfile error:", error);
       toast.error(error.response?.data?.message || "Update failed");
       return false;
     }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { User, FileText, Loader2, X } from "lucide-react";
 import { useAuthStore } from "../store/useAuthStore";
+import toast from "react-hot-toast";
 
 const EditProfileModal = ({ isOpen, onClose }) => {
     const { authUser, updateProfile } = useAuthStore();
@@ -28,11 +29,17 @@ const EditProfileModal = ({ isOpen, onClose }) => {
         }
         
         setLoading(true);
-        const success = await updateProfile(userId, formData);
-        if (success) {
-            onClose();
+        try {
+            const success = await updateProfile(userId, formData);
+            if (success) {
+                onClose();
+            }
+        } catch (error) {
+            console.error("Profile update error:", error);
+            toast.error("An unexpected error occurred");
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
     if (!isOpen) return null;
